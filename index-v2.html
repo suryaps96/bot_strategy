@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Native Assistant — A Better Experience</title>
+<style>
+:root{
+  --bg:#07080B; --bg2:#0C0E14; --surface:#12141C; --surface2:#171A24;
+  --line:#242836; --ink:#F4F6FB; --muted:#8A93A6; --faint:#5A6172;
+  --blue:#2E8BFF; --teal:#16D3A8; --green:#2ECB7A; --coral:#FF6B5B; --gold:#FFC24B;
+  --ease:cubic-bezier(.22,1,.36,1); --ease2:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,"SF Pro Display","Inter",system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden;letter-spacing:-.01em}
+body{background:
+  radial-gradient(1200px 800px at 78% -10%, rgba(46,139,255,.10), transparent 55%),
+  radial-gradient(1000px 700px at 10% 110%, rgba(22,211,168,.08), transparent 55%),
+  var(--bg);}
+
+/* ---------- deck / slide framework ---------- */
+#deck{position:fixed;inset:0}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:clamp(24px,5vw,90px);
+  opacity:0;visibility:hidden;transform:scale(.985);
+  transition:opacity .8s var(--ease),transform 1s var(--ease),visibility 0s .8s}
+.slide.active{opacity:1;visibility:visible;transform:scale(1);transition:opacity .9s var(--ease),transform 1.1s var(--ease)}
+.wrap{width:100%;max-width:1180px;margin:0 auto}
+
+.fwbar{height:4px;width:64px;border-radius:99px;
+  background:linear-gradient(90deg,var(--blue),var(--teal) 45%,var(--green) 62%,var(--gold) 82%,var(--coral));}
+.brandmark{display:flex;align-items:center;gap:12px}
+.leaf{width:26px;height:26px}
+.brandname{font-weight:600;font-size:15px;letter-spacing:.02em;color:#cfd6e4}
+
+.kicker{font-size:clamp(12px,1.1vw,14px);letter-spacing:.28em;text-transform:uppercase;
+  color:var(--teal);font-weight:600;margin-bottom:22px}
+.display{font-weight:700;line-height:1.02;letter-spacing:-.03em;font-size:clamp(38px,7vw,92px)}
+.h2{font-weight:700;font-size:clamp(28px,4.4vw,56px);line-height:1.05;letter-spacing:-.025em}
+.lede{color:var(--muted);font-size:clamp(16px,1.7vw,22px);line-height:1.5;max-width:640px;font-weight:400}
+.grad{background:linear-gradient(100deg,#7cc0ff,#16D3A8 55%,#2ECB7A);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+
+.rv{opacity:0;transform:translateY(22px);filter:blur(6px);
+  transition:opacity .9s var(--ease),transform 1s var(--ease),filter .9s var(--ease)}
+.active .rv.go{opacity:1;transform:none;filter:none}
+
+/* ---------- controls ---------- */
+#hud{position:fixed;z-index:40;left:0;right:0;bottom:0;display:flex;
+  align-items:center;justify-content:space-between;padding:16px clamp(20px,4vw,48px);pointer-events:none}
+.dots{display:flex;gap:9px;pointer-events:auto}
+.dot{width:8px;height:8px;border-radius:99px;background:#2a2f3d;cursor:pointer;transition:all .5s var(--ease)}
+.dot.on{background:var(--teal);width:26px}
+.ctrls{display:flex;gap:10px;pointer-events:auto;align-items:center}
+.btn{border:1px solid var(--line);background:rgba(20,23,32,.6);color:#c7cee0;
+  backdrop-filter:blur(10px);border-radius:99px;padding:9px 16px;font-size:13px;
+  font-weight:500;cursor:pointer;transition:all .3s var(--ease);letter-spacing:.01em}
+.btn:hover{border-color:#39415a;color:#fff;background:rgba(30,34,46,.8)}
+.btn.play span{color:var(--teal)}
+#topbrand{position:fixed;z-index:40;top:clamp(18px,3vh,30px);left:clamp(22px,4vw,48px)}
+#counter{position:fixed;z-index:40;top:clamp(20px,3vh,32px);right:clamp(22px,4vw,48px);
+  font-size:13px;color:var(--faint);font-variant-numeric:tabular-nums}
+.hint{position:fixed;z-index:40;bottom:60px;left:50%;transform:translateX(-50%);
+  font-size:12px;color:var(--faint);letter-spacing:.08em;opacity:.9;transition:opacity .6s}
+
+/* ================= SPLIT SCENES ================= */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:22px;width:100%}
+.panel{background:linear-gradient(180deg,rgba(20,23,32,.7),rgba(12,14,20,.7));
+  border:1px solid var(--line);border-radius:22px;padding:26px;min-height:460px;
+  position:relative;overflow:hidden;transition:opacity .7s var(--ease),filter .7s var(--ease)}
+.panel.dim{opacity:.28;filter:saturate(.5)}
+.panel .ptag{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);
+  display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.panel.left .pdot{color:var(--coral)}
+.panel.right .pdot{color:var(--teal)}
+.panel .ptitle{font-weight:650;font-size:19px;margin-bottom:16px}
+
+/* corridor stage (scene 1) */
+.stage{position:relative;height:220px;border-radius:16px;overflow:hidden;
+  background:radial-gradient(120% 140% at 50% 0%,#1f2432,#10131c);border:1px solid #252a38}
+.floor{position:absolute;left:0;right:0;bottom:0;height:52px;
+  background:linear-gradient(180deg,#12151e,#0a0c12);border-top:1px solid #20242f}
+.door{position:absolute;bottom:52px;width:42px;height:70px;border-radius:6px 6px 0 0;
+  background:linear-gradient(180deg,#2a3144,#1e2433);border:1px solid #3a4256;
+  transform-origin:left bottom;transition:transform .8s var(--ease)}
+.door .knob{position:absolute;right:6px;top:50%;width:5px;height:5px;border-radius:99px;background:#4b5468}
+.door.open{transform:perspective(300px) rotateY(-72deg)}
+.actor{position:absolute;bottom:52px;left:14px;width:50px;height:92px;
+  transition:transform 1s var(--ease);will-change:transform;transform-origin:center bottom}
+.actor-wrap{position:absolute;bottom:52px;left:14px;width:50px;height:92px;transition:transform 1s var(--ease);transform-origin:center bottom}
+.exhaust{position:absolute;top:-8px;right:-4px;font-size:14px;opacity:0;transition:opacity .6s var(--ease)}
+.exhaust.show{opacity:1}
+.cafesign{position:absolute;bottom:118px;font-size:8px;letter-spacing:.12em;font-weight:700;color:var(--gold);
+  background:rgba(255,194,75,.12);border:1px solid rgba(255,194,75,.35);border-radius:4px;padding:2px 6px;opacity:0;transition:opacity .6s var(--ease)}
+.cafesign.show{opacity:1}
+.door.cafe{border-color:rgba(255,194,75,.45);background:linear-gradient(180deg,#3a3544,#252a38)}
+.assistant-orb{position:absolute;top:14px;left:16px;width:40px;height:40px}
+.speech{position:absolute;max-width:190px;background:#fff;color:#12141c;border-radius:14px;
+  padding:9px 13px;font-size:13px;font-weight:500;line-height:1.35;opacity:0;
+  transform:translateY(8px) scale(.96);transition:all .45s var(--ease);
+  box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:5}
+.speech.show{opacity:1;transform:none}
+.speech.you{background:#2E8BFF;color:#fff}
+.speech:after{content:"";position:absolute;bottom:-6px;width:12px;height:12px;background:inherit;transform:rotate(45deg)}
+.speech.tl:after{left:18px}.speech.tr:after{right:18px}
+
+.caption{margin-top:16px;font-size:15px;color:#C5CDD9;min-height:24px;font-weight:500;
+  opacity:0;transform:translateY(6px);transition:all .6s var(--ease);
+  text-shadow:0 1px 12px rgba(0,0,0,.45)}
+.caption.show{opacity:1;transform:none}
+.caption b{color:#fff;font-weight:700;text-shadow:0 0 18px rgba(22,211,168,.25)}
+.snm-hl{color:var(--teal);font-weight:700;letter-spacing:.02em;text-shadow:0 0 20px rgba(22,211,168,.35)}
+.chart-snm-title{font-size:clamp(14px,1.4vw,17px);letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink);font-weight:700;text-shadow:0 0 22px rgba(22,211,168,.2)}
+.chart-snm-title span{color:var(--teal)}
+.lib-slide .ptitle{font-size:clamp(20px,2.2vw,24px)}
+.lib-sub{font-size:12px;color:var(--muted);line-height:1.45;margin:-8px 0 12px;font-weight:400}
+
+/* native chat */
+.chatcol{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+.cbub{background:#fff;color:#12141c;border-radius:14px;padding:11px 14px;font-size:13.5px;
+  line-height:1.4;font-weight:500;opacity:0;transform:translateY(10px);transition:all .55s var(--ease);
+  align-self:flex-start;max-width:92%}
+.cbub.you{background:#2E8BFF;color:#fff;align-self:flex-end}
+.cbub.show{opacity:1;transform:none}
+.tipcard{margin-top:2px;background:linear-gradient(140deg,rgba(22,211,168,.16),rgba(46,203,122,.06));
+  border:1px solid rgba(22,211,168,.4);border-radius:14px;padding:12px 14px;
+  opacity:0;transform:translateY(12px) scale(.98);transition:all .6s var(--ease)}
+.tipcard.show{opacity:1;transform:none}
+.tipcard .tt{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);font-weight:700;margin-bottom:4px;display:flex;gap:6px;align-items:center}
+.tipcard .tc{font-size:13px;color:#d6e5df;line-height:1.4}
+
+/* ================= SCENE : CHART ================= */
+.chartcard{background:linear-gradient(180deg,rgba(18,21,30,.9),rgba(10,12,18,.9));
+  border:1px solid var(--line);border-radius:24px;padding:clamp(22px,3.2vw,40px);width:100%}
+.chartcard .clabel{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;flex-wrap:wrap;gap:12px}
+.bignum{font-weight:700;font-size:clamp(30px,4vw,46px);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+svg.chart{width:100%;height:auto;display:block;overflow:visible}
+.axlab{fill:var(--faint);font-size:12px}
+.pt{opacity:0;transition:opacity .3s var(--ease)}
+.pt.on{opacity:1}
+.hero3{display:flex;align-items:baseline;gap:14px;margin-top:26px;flex-wrap:wrap;
+  opacity:0;transform:translateY(14px);transition:all .8s var(--ease)}
+.hero3.go{opacity:1;transform:none}
+.hero3 .pp{font-weight:800;font-size:clamp(44px,7vw,88px);letter-spacing:-.04em;
+  background:linear-gradient(120deg,#7cc0ff,#16D3A8);-webkit-background-clip:text;background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+.hero3 .ppcap{color:var(--muted);font-size:16px;line-height:1.4}
+.chain{display:flex;flex-direction:column;gap:2px;margin-top:8px}
+.chain span{color:var(--faint);font-size:14px;opacity:0;transform:translateY(6px);transition:all .5s var(--ease)}
+.chain span.go{opacity:1;transform:none;color:var(--muted)}
+.chain span.last{color:var(--teal);font-weight:600}
+
+/* ================= SCENE : LIBRARY ================= */
+.lstage{position:relative;height:270px;border-radius:16px;overflow:hidden;
+  background:radial-gradient(120% 140% at 50% 0%,#191d28,#0b0d13);border:1px solid #1c202c;
+  transition:transform .9s var(--ease)}
+.lstage.zoom-out{transform:scale(.96)}
+.lstage .secondary{opacity:.18;transition:opacity .5s var(--ease)}
+.lstage .gone{opacity:0!important;pointer-events:none}
+.lstage .stage-dim .libfig,.lstage .stage-dim .folder,.lstage .stage-dim .qbubble{opacity:.15!important}
+.lfloor{position:absolute;left:0;right:0;bottom:0;height:40px;background:linear-gradient(180deg,#10131b,#0a0c11)}
+.bframe{position:absolute;left:34px;top:46px;width:150px;height:158px;border:1px solid #2a3346;border-radius:6px}
+.bframe.tidy{border-color:rgba(37,203,122,.4)}
+.bshelf{position:absolute;left:34px;width:150px;height:7px;background:#232838;border:1px solid #2e3446}
+.bshelf.tidy{background:rgba(37,203,122,.12);border-color:rgba(37,203,122,.35)}
+.book{position:absolute;width:11px;border-radius:2px;transition:box-shadow .5s var(--ease),filter .5s var(--ease)}
+.book.hl{box-shadow:0 0 12px rgba(255,194,75,.55);filter:brightness(1.25)}
+.libfig{position:absolute;bottom:36px;width:50px;height:92px;transition:opacity .5s var(--ease);
+  will-change:transform;z-index:3;opacity:0}
+.libfig .libbody{position:absolute;bottom:0;left:0;width:50px;height:92px;transition:transform 1.3s var(--ease);will-change:transform}
+.libbadge{position:absolute;left:50%;top:-14px;transform:translateX(-50%);white-space:nowrap;pointer-events:none;z-index:6}
+.libfig.show{opacity:1}
+.lstage [data-prop]:not(.show){opacity:0;pointer-events:none}
+.lstage [data-prop].show{opacity:1;pointer-events:auto}
+.lstage .book[data-prop].show{opacity:1}
+.lstage .extlib[data-prop].show{opacity:.9}
+.lstage .pathway[data-prop].show{opacity:1}
+.qbubble{position:absolute;right:12px;top:10px;max-width:130px;background:#2E8BFF;color:#fff;border-radius:12px;
+  padding:7px 10px;font-size:10px;font-weight:500;line-height:1.35;opacity:0;transform:translateY(6px) scale(.96);
+  transition:all .5s var(--ease);z-index:5}
+.qbubble.show{opacity:1;transform:none}
+.qbubble.morph{transform:scale(.35);border-radius:4px;max-width:36px;padding:4px;font-size:0;
+  background:linear-gradient(180deg,#3a4458,#2a3144);color:transparent;right:auto!important;left:148px;top:48px}
+.folder{position:absolute;width:36px;height:28px;border-radius:3px;background:linear-gradient(180deg,#3a4458,#2a3144);
+  border:1px solid #4a5568;opacity:0;transform:scale(.7);transition:all .55s var(--ease2);z-index:4;
+  font-size:6px;color:#c8f5dd;display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;
+  letter-spacing:.04em;text-transform:uppercase}
+.folder.carried{transition:left 1.1s var(--ease),bottom 1.1s var(--ease);z-index:5}
+.folder:before{content:"";position:absolute;top:0;left:0;right:0;height:8px;background:#4a5568;border-radius:3px 3px 0 0}
+.folder.show{opacity:1;transform:none}
+.folder.travel{transition:all 1s var(--ease)}
+.folder.doc{width:52px;height:34px;font-size:5.5px;line-height:1.15;text-transform:none;letter-spacing:0;
+  align-items:center;padding:0 3px 2px;text-align:center;white-space:normal}
+.folder.doc.answer{width:58px}
+.extliblib.handoff{transform:translateX(8px);transition:transform .4s var(--ease)}
+.tube{position:absolute;height:4px;background:repeating-linear-gradient(90deg,#4a5568 0 8px,transparent 8px 14px);
+  opacity:0;transition:opacity .5s var(--ease);z-index:2;border-radius:2px}
+.tube.show{opacity:1}
+.faxlbl{position:absolute;font-size:7px;letter-spacing:.12em;text-transform:uppercase;color:var(--coral);
+  font-weight:700;opacity:0;transition:opacity .4s var(--ease);z-index:3;white-space:nowrap}
+.faxlbl.show{opacity:1}
+.ranktag{position:absolute;font-size:9px;font-weight:700;color:var(--gold);opacity:0;transform:scale(.5);
+  transition:all .45s var(--ease2);z-index:5;text-shadow:0 0 8px rgba(255,194,75,.35);
+  background:rgba(20,23,32,.7);border-radius:50%;width:14px;height:14px;
+  display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.ranktag.show{opacity:1;transform:none}
+.extlib{position:absolute;left:14px;top:36px;width:88px;height:130px;border:1px solid #353d50;border-radius:6px;
+  background:linear-gradient(180deg,#1a1f2a,#12151c);opacity:0;transition:opacity .5s var(--ease)}
+.extlib.show{opacity:.9}
+.extliblib{position:absolute;bottom:8px;left:20px;width:36px;height:66px;opacity:0;transition:opacity .5s var(--ease);z-index:3}
+.extliblib.show{opacity:1}
+.extliblib svg{width:36px!important;height:66px!important}
+.extlib .elbl{position:absolute;top:-18px;left:0;right:0;text-align:center;font-size:7px;letter-spacing:.1em;
+  color:var(--faint);text-transform:uppercase}
+.packet{position:absolute;width:28px;height:20px;border-radius:3px;border:1px solid rgba(22,211,168,.5);
+  background:rgba(22,211,168,.15);font-size:7px;color:#c8f5dd;display:flex;align-items:center;justify-content:center;
+  letter-spacing:.06em;opacity:0;transform:scale(.7);transition:all .55s var(--ease2);z-index:4}
+.packet.show{opacity:1;transform:none}
+.decisiondesk{position:absolute;left:50%;top:24px;transform:translateX(-50%);width:140px;height:52px;border-radius:10px;
+  background:linear-gradient(180deg,#1a2030,#12151e);border:1px solid #2e3446;opacity:0;transition:all .6s var(--ease)}
+.decisiondesk.show{opacity:1}
+.decisiondesk .dlbl{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:7px;letter-spacing:.12em;
+  color:var(--gold);text-transform:uppercase;font-weight:600}
+.pathway{position:absolute;bottom:8px;height:22px;border-radius:5px;border:1px solid #2e3446;background:rgba(35,40,56,.7);
+  display:flex;align-items:center;justify-content:center;font-size:8px;letter-spacing:.1em;text-transform:uppercase;
+  color:#8A93A6;transition:all .5s var(--ease)}
+.pathway.kn{left:10px;width:54px}
+.pathway.wf{right:10px;width:58px}
+.pathway.on{border-color:rgba(22,211,168,.55);color:#c8f5dd;background:rgba(22,211,168,.14);box-shadow:0 0 14px rgba(22,211,168,.2)}
+.pathway.dim{opacity:.2;filter:grayscale(.6)}
+.pathway.dim.show{opacity:.2}
+.authordesk{position:absolute;left:118px;top:88px;width:62px;height:48px;border-radius:6px;
+  background:linear-gradient(180deg,#232838,#181c26);border:1px solid #39415a;opacity:0;transition:all .55s var(--ease)}
+.authordesk.show{opacity:1}
+.authordesk.processing{box-shadow:0 0 20px rgba(46,139,255,.35);border-color:rgba(46,139,255,.55)}
+.authordesk .albl{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:6.5px;letter-spacing:.08em;
+  color:var(--faint);text-transform:uppercase;line-height:1.2}
+.opsboard{position:absolute;right:10px;top:6px;left:auto;width:108px;display:flex;flex-direction:column;gap:3px;
+  opacity:0;transform:translateY(-8px);transition:all .7s var(--ease);z-index:6}
+.opsboard.show{opacity:1;transform:none}
+.opstage{font-size:7px;letter-spacing:.06em;text-transform:uppercase;color:#5A6172;padding:3px 6px;border-radius:4px;
+  border:1px solid #2a3040;background:rgba(20,23,32,.85);transition:all .45s var(--ease);white-space:nowrap}
+.opstage.on{color:#c8f5dd;border-color:rgba(22,211,168,.45);background:rgba(22,211,168,.12)}
+.qpuff{position:absolute;font-size:16px;opacity:0;transition:all .5s var(--ease);color:#7c8598;z-index:4}
+.qpuff.show{opacity:1}
+.lib-ptag{font-size:clamp(16px,1.8vw,22px)!important;color:var(--ink)!important;letter-spacing:.12em!important;font-weight:650!important}
+.rolebadge{position:absolute;font-size:7px;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 7px;border-radius:99px;z-index:6;font-weight:700;opacity:0;transition:opacity .45s var(--ease)}
+.rolebadge.show{opacity:1}
+.rolebadge.librarian{color:#c8f5dd;background:rgba(22,211,168,.18);border:1px solid rgba(22,211,168,.5)}
+.rolebadge.azure{color:#a8c8ff;background:rgba(46,139,255,.14);border:1px solid rgba(46,139,255,.45)}
+.azureblock{border-color:rgba(46,139,255,.55)!important;box-shadow:0 0 18px rgba(46,139,255,.12)}
+
+/* closing */
+.closing .display{font-size:clamp(34px,6.2vw,84px)}
+.center{text-align:center}
+.stat-row{display:flex;gap:clamp(24px,5vw,80px);justify-content:center;flex-wrap:wrap;margin-top:8px}
+.stat .n{font-weight:700;font-size:clamp(30px,4vw,46px);font-variant-numeric:tabular-nums}
+.stat .l{color:var(--muted);font-size:13px;letter-spacing:.04em;margin-top:2px}
+
+@media (max-width:820px){
+  .split{grid-template-columns:1fr}
+  .panel.dim{opacity:.5}
+}
+</style>
+</head>
+<body>
+
+<div id="topbrand" class="brandmark">
+  <svg class="leaf" viewBox="0 0 32 32" aria-hidden="true">
+    <defs><linearGradient id="lf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2E8BFF"/><stop offset=".5" stop-color="#16D3A8"/>
+      <stop offset="1" stop-color="#FFC24B"/></linearGradient></defs>
+    <path d="M27 5c0 12-7 22-16 22-4 0-6-2-6-6C5 12 15 5 27 5z" fill="url(#lf)"/>
+    <path d="M9 27C13 18 19 12 25 9" stroke="#0b0d13" stroke-width="1.6" fill="none" opacity=".35"/>
+  </svg>
+  <span class="brandname">Freshworks&nbsp;·&nbsp;Native Assistant</span>
+</div>
+<div id="counter">01 / 09</div>
+
+<div id="deck">
+
+  <!-- ============ 0 TITLE ============ -->
+  <section class="slide" data-dur="6500">
+    <div class="wrap center">
+      <div class="fwbar rv" style="margin:0 auto 30px"></div>
+      <div class="kicker rv">Support Enablement · All Hands</div>
+      <h1 class="display rv">Same question.<br><span class="grad">A better answer.</span></h1>
+      <p class="lede rv" style="margin:26px auto 0">The story of how the Native Assistant changed the experience.</p>
+    </div>
+  </section>
+
+  <!-- ============ 1 SCENE 1 SPLIT ============ -->
+  <section class="slide" data-scene="s1" data-dur="81000">
+    <div class="wrap">
+      <div class="kicker rv" style="text-align:center">Scene One</div>
+      <h2 class="h2 rv center" style="margin-bottom:24px">Same Question. <span class="grad">Different Experience.</span></h2>
+      <div class="split">
+        <!-- LEFT : earlier -->
+        <div class="panel left" id="p1L">
+          <div class="ptag"><span class="pdot">&#9679;</span> Earlier Experience</div>
+          <div class="ptitle">&ldquo;Where&rsquo;s the cafeteria?&rdquo;</div>
+          <div class="stage" id="stageL">
+            <svg class="assistant-orb" viewBox="0 0 46 46"><circle cx="23" cy="23" r="20" fill="#20263a" stroke="#39415a"/><circle cx="16" cy="21" r="2.4" fill="#8A93A6"/><circle cx="30" cy="21" r="2.4" fill="#8A93A6"/><path d="M16 30q7 3 14 0" stroke="#5A6172" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+            <div class="door" style="left:120px"><span class="knob"></span></div>
+            <div class="door cafe" id="cafeteriaDoor" style="left:248px"><span class="knob"></span></div>
+            <div class="cafesign" id="cafesign" style="left:244px">CAFE</div>
+            <div class="actor-wrap" id="actorWrap">
+              <div class="actor" id="actorL"></div>
+              <div class="exhaust" id="exhaust">&#128166;&#128166;</div>
+            </div>
+            <div class="floor"></div>
+            <div class="speech you tr" id="Lyou" style="right:14px;top:14px">Excuse me, where&rsquo;s the cafeteria?</div>
+            <div class="speech tl" id="Lasst" style="left:66px;top:14px">Go left.</div>
+          </div>
+          <div class="caption" id="capL"></div>
+        </div>
+        <!-- RIGHT : native -->
+        <div class="panel right dim" id="p1R">
+          <div class="ptag"><span class="pdot">&#9679;</span> Native Assistant</div>
+          <div class="ptitle">&ldquo;Where&rsquo;s the cafeteria?&rdquo;</div>
+          <div class="chatcol" id="chatR">
+            <div class="cbub you" id="R0">Excuse me, where&rsquo;s the cafeteria?</div>
+            <div class="cbub" id="R1">Sure! You&rsquo;re in Building&nbsp;A, right?</div>
+            <div class="cbub you" id="R1b">Yes.</div>
+            <div class="cbub" id="R2">Walk straight to Reception&nbsp;&rarr; elevator to Floor&nbsp;2 &rarr; the cafeteria is opposite the game room.</div>
+          </div>
+          <div class="tipcard" id="tipR">
+            <div class="tt">&#10022; Helpful Tip</div>
+            <div class="tc">If the elevator is busy, there&rsquo;s a staircase beside Reception that gets you there just as quickly.</div>
+          </div>
+          <div class="caption" id="capR" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 BRIDGE LINE ============ -->
+  <section class="slide" data-dur="6000">
+    <div class="wrap center">
+      <h2 class="h2 rv">From answering questions&hellip;</h2>
+      <h2 class="h2 rv grad" style="margin-top:14px">&hellip;to helping customers succeed.</h2>
+    </div>
+  </section>
+
+  <!-- ============ 3 SCENE : CHART ============ -->
+  <section class="slide" data-scene="s3" data-dur="14000">
+    <div class="wrap">
+      <div class="kicker rv" style="text-align:center">Scene Two &middot; Business Impact</div>
+      <h2 class="h2 rv center" style="margin-bottom:26px">The natural consequence.</h2>
+      <div class="chartcard rv">
+        <div class="clabel">
+          <div>
+            <div class="chart-snm-title">SNM &middot; <span>Chat Deflection</span></div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">Apr &rarr; Jun 2026 &middot; weekly avg</div>
+          </div>
+          <div class="bignum" id="liveNum" style="color:var(--teal)">&mdash;</div>
+        </div>
+        <svg class="chart" id="chart" viewBox="0 0 900 340" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="hero3" id="hero3">
+          <div class="pp" id="ppNum">+0 pp</div>
+          <div>
+            <div class="ppcap" style="color:var(--ink);font-weight:600"><span class="snm-hl">SNM chat</span> deflection achieved</div>
+          </div>
+        </div>
+        <div class="chain" id="chain">
+          <span>Better conversations.</span>
+          <span>Better outcomes.</span>
+          <span class="last">Higher chat deflection.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4 SCENE : LIBRARY HEADER ============ -->
+  <section class="slide" data-dur="6000">
+    <div class="wrap center">
+      <div class="kicker rv">Scene Three</div>
+      <h2 class="h2 rv">Under the Hood</h2>
+      <p class="lede rv center" style="margin:20px auto 0">Why did the experience improve?<br>The knowledge was always there.<br>What changed was who owned the journey.</p>
+    </div>
+  </section>
+
+  <!-- ============ 5 LIBRARY SPLIT ============ -->
+  <section class="slide lib-slide" data-scene="s4" data-dur="48000">
+    <div class="wrap">
+      <div class="kicker rv" style="text-align:center">Scene Three</div>
+      <h2 class="h2 rv center" style="margin-bottom:22px">Same question. Who builds the answer?</h2>
+      <div class="split">
+        <!-- external library -->
+        <div class="panel left" id="kL">
+          <div class="ptag lib-ptag"><span class="pdot">&#9679;</span> External Library</div>
+          <div class="ptitle">&ldquo;How do I reset MFA?&rdquo;</div>
+          <p class="lib-sub">The knowledge existed&hellip; but the journey was controlled somewhere else.</p>
+          <div class="lstage" id="lstageL">
+            <div class="qbubble" id="custQL" data-prop>How do I reset MFA?</div>
+            <div class="extlib azureblock" id="extLib" data-prop>
+              <span class="elbl">Azure</span>
+              <span class="rolebadge azure" id="badgeAzureL" style="left:50%;top:6px;transform:translateX(-50%)">Azure</span>
+              <div class="bframe" style="left:8px;top:24px;width:72px;height:88px"></div>
+              <div class="bshelf" style="left:8px;top:58px;width:72px"></div>
+              <div class="bshelf" style="left:8px;top:88px;width:72px"></div>
+              <div class="book" id="extB1" data-prop style="left:14px;top:34px;height:22px;background:#33405a"></div>
+              <div class="book" id="extB2" data-prop style="left:28px;top:36px;height:20px;background:#2f4a44"></div>
+              <div class="book" id="extB3" data-prop style="left:42px;top:32px;height:24px;background:#3a3350"></div>
+              <div class="book" style="left:56px;top:38px;height:18px;background:#2a3346"></div>
+              <div class="book" style="left:14px;top:68px;height:20px;background:#38414f"></div>
+              <div class="book" style="left:28px;top:70px;height:18px;background:#2f3a50"></div>
+              <div class="extliblib" id="libExt" data-prop></div>
+              <div class="folder doc answer" id="summaryIn" data-prop style="left:26px;bottom:14px">Answer Summary</div>
+            </div>
+            <div class="tube" id="tubeL" data-prop style="left:72px;bottom:64px;width:58px"></div>
+            <div class="folder doc" id="reqFolder" data-prop style="left:128px;bottom:52px">User Query</div>
+            <div class="folder doc answer" id="summaryBack" data-prop style="left:78px;bottom:58px">Answer Summary</div>
+            <div class="libfig" id="libL" data-prop style="left:128px"></div>
+            <div class="lfloor"></div>
+          </div>
+          <div class="caption" id="kcapL"></div>
+        </div>
+        <!-- freshworks knowledge library -->
+        <div class="panel right dim" id="kR">
+          <div class="ptag lib-ptag"><span class="pdot">&#9679;</span> Freshworks Knowledge Library</div>
+          <div class="ptitle">&ldquo;How do I reset MFA?&rdquo;</div>
+          <div class="ptitle" style="font-size:15px;color:var(--muted);margin-top:-8px">We own the journey</div>
+          <div class="lstage" id="lstageR">
+            <div class="qbubble" id="custQR" data-prop>How do I reset MFA?</div>
+            <div class="bframe tidy" id="unifiedShelf" data-prop style="left:24px;top:100px;width:120px;height:88px"></div>
+            <div class="bshelf tidy" style="left:24px;top:132px;width:120px"></div>
+            <div class="bshelf tidy" style="left:24px;top:162px;width:120px"></div>
+            <div class="book" id="book1" data-prop style="left:32px;top:108px;height:22px;background:#1f5a46"></div>
+            <div class="ranktag" id="rk1" data-prop style="left:26px;top:100px">&#9312;</div>
+            <div class="book" id="book2" data-prop style="left:48px;top:110px;height:20px;background:#1c4f55"></div>
+            <div class="ranktag" id="rk2" data-prop style="left:42px;top:102px">&#9313;</div>
+            <div class="book" id="book3" data-prop style="left:64px;top:106px;height:24px;background:#2a5b3f"></div>
+            <div class="ranktag" id="rk3" data-prop style="left:58px;top:98px">&#9314;</div>
+            <div class="book" style="left:80px;top:109px;height:21px;background:#245247"></div>
+            <div class="book" style="left:96px;top:111px;height:19px;background:#1f5a46"></div>
+            <div class="book" style="left:112px;top:107px;height:23px;background:#1c4f55"></div>
+            <div class="folder doc" id="researchFolder" data-prop style="left:48px;bottom:52px">User Query</div>
+            <div class="tube" id="tubeR" data-prop style="left:108px;bottom:64px;width:52px"></div>
+            <div class="authordesk azureblock" id="authorDesk" data-prop>
+              <span class="albl">Azure</span>
+              <span class="albl" style="bottom:-14px;font-size:6px;color:#a8c8ff">AI Writer</span>
+              <span class="rolebadge azure" id="badgeAzureR" style="left:50%;top:-12px;transform:translateX(-50%)">Azure</span>
+            </div>
+            <div class="folder doc answer" id="polishedReturn" data-prop style="left:120px;bottom:58px">Answer Summary</div>
+            <div class="libfig" id="libR" data-prop style="left:168px"></div>
+            <div class="opsboard" id="opsBoard" data-prop>
+              <div class="opstage" id="op1" data-prop>Customer Question</div>
+              <div class="opstage" id="op2" data-prop>Decision Made</div>
+              <div class="opstage" id="op3" data-prop>Knowledge Selected</div>
+              <div class="opstage" id="op4" data-prop>Response Generated</div>
+              <div class="opstage" id="op5" data-prop>Delivered</div>
+            </div>
+            <div class="lfloor"></div>
+          </div>
+          <div class="caption" id="kcapR"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 6 PAYOFF ============ -->
+  <section class="slide" data-dur="9000">
+    <div class="wrap center">
+      <h2 class="h2 rv">The questions didn&rsquo;t change.</h2>
+      <h2 class="h2 rv" style="margin-top:8px;color:var(--muted)">We changed how every answer was built.</h2>
+      <h2 class="h2 rv grad" style="margin-top:8px">Now we own the entire journey.</h2>
+    </div>
+  </section>
+
+  <!-- ============ 8 CLOSING ============ -->
+  <section class="slide closing" data-dur="12000">
+    <div class="wrap center">
+      <h2 class="display rv" style="margin-bottom:34px">Better experiences begin<br><span class="grad">with better decisions.</span></h2>
+      <div class="stat-row">
+        <div class="stat rv"><div class="n" style="color:var(--teal);font-size:clamp(22px,3vw,32px)">&#10003;</div><div class="l">Improved Answer Relevance</div></div>
+        <div class="stat rv"><div class="n" style="color:var(--green);font-size:clamp(22px,3vw,32px)">&#10003;</div><div class="l">Well Grounded Answers</div></div>
+        <div class="stat rv"><div class="n" style="color:var(--blue);font-size:clamp(22px,3vw,32px)">&#10003;</div><div class="l">Better Workflow Execution</div></div>
+      </div>
+      <p class="lede rv center" style="margin:36px auto 0">Every smarter conversation starts here.</p>
+    </div>
+  </section>
+
+</div><!--/deck-->
+
+<div class="hint" id="hint">&larr; &rarr;  navigate   &middot;   space  next   &middot;   A  autoplay</div>
+<div id="hud">
+  <div class="dots" id="dots"></div>
+  <div class="ctrls">
+    <button class="btn" id="prev">Prev</button>
+    <button class="btn play" id="auto">Autoplay <span>&#9679;</span></button>
+    <button class="btn" id="next">Next</button>
+  </div>
+</div>
+
+<script>
+/* ---------- SVG figures ---------- */
+function personSVG(shirt, office){
+  const officeGear = office ? '<rect x="20" y="38" width="12" height="5" rx="1" fill="#fff" opacity=".92"/><rect x="22" y="32" width="2" height="7" fill="#ffc24b"/>' : '';
+  return `<svg viewBox="0 0 52 96" width="50" height="92">
+    <ellipse cx="26" cy="93" rx="15" ry="3" fill="#000" opacity=".3"/>
+    <circle cx="26" cy="14" r="11" fill="#E8C9A8"/>
+    <path d="M15 12a11 11 0 0122 0" fill="#3a3a3a"/>
+    <rect x="14" y="26" width="24" height="40" rx="11" fill="${shirt}"/>
+    <rect x="10" y="30" width="8" height="26" rx="4" fill="${shirt}"/>
+    <rect x="34" y="30" width="8" height="26" rx="4" fill="${shirt}"/>
+    ${officeGear}
+    <rect x="17" y="64" width="8" height="28" rx="4" fill="#2b2f3a"/>
+    <rect x="27" y="64" width="8" height="28" rx="4" fill="#2b2f3a"/>
+  </svg>`;
+}
+function librarianSVG(shirt){
+  return `<svg viewBox="0 0 52 96" width="50" height="92">
+    <ellipse cx="26" cy="93" rx="15" ry="3" fill="#000" opacity=".3"/>
+    <circle cx="26" cy="14" r="11" fill="#E8C9A8"/>
+    <path d="M15 12a11 11 0 0122 0" fill="#4a4a4a"/>
+    <rect x="14" y="26" width="24" height="40" rx="11" fill="${shirt}"/>
+    <rect x="10" y="30" width="8" height="24" rx="4" fill="${shirt}"/>
+    <rect x="34" y="30" width="8" height="24" rx="4" fill="${shirt}"/>
+    <rect x="17" y="45" width="18" height="14" rx="2" fill="#e7edf5"/>
+    <line x1="26" y1="45" x2="26" y2="59" stroke="#b9c2d0" stroke-width="1.3"/>
+    <rect x="17" y="64" width="8" height="28" rx="4" fill="#2b2f3a"/>
+    <rect x="27" y="64" width="8" height="28" rx="4" fill="#2b2f3a"/>
+  </svg>`;
+}
+document.getElementById('actorL').innerHTML = personSVG('#3457d5', true);
+function initLibFig(figId,badgeId,shirt){
+  const fig=document.getElementById(figId);
+  fig.innerHTML='';
+  const body=document.createElement('div');
+  body.className='libbody';
+  body.innerHTML=librarianSVG(shirt);
+  fig.appendChild(body);
+  const b=document.createElement('span');
+  b.className='rolebadge librarian libbadge';
+  b.id=badgeId;
+  b.textContent='Librarian';
+  fig.appendChild(b);
+}
+initLibFig('libL','badgeLibL','#3457d5');
+document.getElementById('libExt').innerHTML=librarianSVG('#6b7488');
+initLibFig('libR','badgeLibR','#1f8f66');
+
+/* ---------- deck engine ---------- */
+const slides=[...document.querySelectorAll('.slide')];
+const dotsWrap=document.getElementById('dots');
+const counter=document.getElementById('counter');
+let cur=0, autoplay=false, autoT=null, timeouts=[];
+
+slides.forEach((s,i)=>{const d=document.createElement('div');d.className='dot';
+  d.onclick=()=>go(i);dotsWrap.appendChild(d);});
+const dots=[...document.querySelectorAll('.dot')];
+
+function T(fn,t){const id=setTimeout(fn,t);timeouts.push(id);return id;}
+function clearAll(){timeouts.forEach(clearTimeout);timeouts=[];}
+function pad(n){return String(n+1).padStart(2,'0');}
+
+function revealUp(slide){
+  const items=slide.querySelectorAll('.rv');
+  items.forEach((el,i)=>T(()=>el.classList.add('go'), 120+i*140));
+}
+function resetReveal(slide){slide.querySelectorAll('.rv').forEach(el=>el.classList.remove('go'));}
+
+function go(i){
+  if(i<0||i>=slides.length) return;
+  clearAll();
+  const prev=slides[cur];
+  resetReveal(prev); resetScene(prev.dataset.scene);
+  cur=i;
+  slides.forEach(s=>s.classList.remove('active'));
+  const s=slides[cur]; s.classList.add('active');
+  dots.forEach((d,k)=>d.classList.toggle('on',k===cur));
+  counter.textContent = pad(cur)+' / '+String(slides.length).padStart(2,'0');
+  revealUp(s);
+  if(s.dataset.scene) T(()=>playScene(s.dataset.scene), 500);
+  if(autoplay) scheduleAuto(s);
+}
+function scheduleAuto(s){
+  clearTimeout(autoT);
+  const dur=parseInt(s.dataset.dur||'7000',10);
+  autoT=setTimeout(()=>{ if(cur<slides.length-1) go(cur+1); else stopAuto(); }, dur);
+}
+function stopAuto(){autoplay=false;clearTimeout(autoT);
+  document.getElementById('auto').innerHTML='Autoplay <span>&#9679;</span>';
+  document.getElementById('auto').style.borderColor='';}
+function startAuto(){autoplay=true;
+  const b=document.getElementById('auto');b.innerHTML='Pause <span style="color:#FF6B5B">&#9632;</span>';
+  b.style.borderColor='#39415a';scheduleAuto(slides[cur]);}
+
+/* nav */
+document.getElementById('next').onclick=()=>{stopAuto();go(cur+1);};
+document.getElementById('prev').onclick=()=>{stopAuto();go(cur-1);};
+document.getElementById('auto').onclick=()=>autoplay?stopAuto():startAuto();
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();stopAuto();go(cur+1);}
+  else if(e.key==='ArrowLeft'){stopAuto();go(cur-1);}
+  else if(e.key.toLowerCase()==='a'){autoplay?stopAuto():startAuto();}
+});
+setTimeout(()=>document.getElementById('hint').style.opacity=0,5000);
+
+/* ---------- scene reset ---------- */
+function resetScene(name){
+  if(name==='s1'){
+    ['Lyou','Lasst'].forEach(id=>document.getElementById(id).classList.remove('show'));
+    document.getElementById('Lasst').textContent='Go left.';
+    ['R0','R1','R1b','R2'].forEach(id=>document.getElementById(id).classList.remove('show'));
+    document.getElementById('tipR').classList.remove('show');
+    document.getElementById('capL').classList.remove('show');
+    document.getElementById('capL').textContent='';
+    document.getElementById('capR').classList.remove('show');
+    document.getElementById('actorWrap').style.transform='translateX(0) scaleX(1)';
+    document.getElementById('cafeteriaDoor').classList.remove('open');
+    document.getElementById('cafesign').classList.remove('show');
+    document.getElementById('exhaust').classList.remove('show');
+    document.getElementById('p1R').classList.add('dim');
+    document.getElementById('p1L').classList.remove('dim');
+  }
+  if(name==='s3'){
+    document.getElementById('chart').innerHTML='';
+    document.getElementById('liveNum').textContent='\u2014';
+    document.getElementById('ppNum').textContent='+0 pp';
+    document.getElementById('hero3').classList.remove('go');
+    document.querySelectorAll('#chain span').forEach(s=>s.classList.remove('go'));
+  }
+  if(name==='s4'){
+    ['lstageL','lstageR'].forEach(sid=>{
+      document.querySelectorAll(`#${sid} [data-prop]`).forEach(el=>{
+        el.classList.remove('show','secondary','morph','carried','travel','processing','gone');
+      });
+      document.getElementById(sid).classList.remove('stage-dim');
+    });
+    ['extB1','extB2','extB3','book1','book2','book3'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.classList.remove('hl');
+    });
+    ['rk1','rk2','rk3'].forEach(id=>hide(id));
+    ['badgeLibL','badgeLibR','badgeAzureL','badgeAzureR'].forEach(id=>hide(id));
+    resetLibWalk('libL'); resetLibWalk('libR');
+    document.getElementById('libExt').classList.remove('handoff');
+    resetBookPositions();
+    resetRankPositions();
+    document.getElementById('authorDesk').style.left='118px';
+    document.getElementById('authorDesk').style.top='88px';
+    document.getElementById('custQL').classList.remove('morph');
+    document.getElementById('custQR').classList.remove('morph');
+    document.getElementById('reqFolder').style.left='128px';
+    document.getElementById('researchFolder').style.left='48px';
+    document.getElementById('summaryBack').style.left='78px';
+    document.getElementById('polishedReturn').style.left='120px';
+    document.getElementById('kcapL').textContent='';
+    document.getElementById('kcapR').textContent='';
+    document.getElementById('kcapL').classList.remove('show');
+    document.getElementById('kcapR').classList.remove('show');
+    document.getElementById('kR').classList.add('dim');
+    document.getElementById('kL').classList.remove('dim');
+    document.getElementById('authorDesk').classList.remove('processing');
+  }
+}
+function playScene(name){
+  if(name==='s1') playS1();
+  if(name==='s3') playS3();
+  if(name==='s4') playS4();
+}
+
+/* ---------- SCENE 1 ---------- */
+const PACE_S1=2;
+const t1=ms=>ms*PACE_S1;
+function show(id){document.getElementById(id).classList.add('show');}
+function hide(id){const el=document.getElementById(id);if(el)el.classList.remove('show');}
+function dimEl(id){const el=document.getElementById(id);if(el)el.classList.add('secondary');}
+function onlyStage(stageId,...ids){
+  document.querySelectorAll(`#${stageId} [data-prop]`).forEach(el=>{
+    el.classList.toggle('show',ids.includes(el.id));
+    if(!ids.includes(el.id))el.classList.remove('morph','carried','travel','processing','secondary');
+  });
+}
+function resetLibWalk(libId){
+  const body=document.querySelector(`#${libId} .libbody`);
+  if(body) body.style.transform='translateX(0) scaleX(1)';
+}
+function walkLib(libId,tx,face){
+  const flip=face==='left'?-1:1;
+  const body=document.querySelector(`#${libId} .libbody`);
+  if(body) body.style.transform=`translateX(${tx}px) scaleX(${flip})`;
+}
+function libVisualLeft(libId){
+  const lib=document.getElementById(libId);
+  const body=lib.querySelector('.libbody');
+  const tr=(body&&body.style.transform)||'';
+  const m=tr.match(/translateX\((-?\d+)px/);
+  const tx=m?parseInt(m[1],10):0;
+  return parseInt(lib.style.left||0,10)+tx;
+}
+function positionAzureBesideLib(libId){
+  const azure=document.getElementById('authorDesk');
+  const left=libVisualLeft(libId)+52;
+  azure.style.left=left+'px';
+  azure.style.top='88px';
+  return {left,top:88,w:62,h:48};
+}
+function walkLibCarry(libId,tx,face,folderId){
+  walkLib(libId,tx,face);
+  if(folderId) attachFolder(folderId,libId);
+}
+function attachFolder(folderId,libId,ox=6){
+  const base=libVisualLeft(libId);
+  const f=document.getElementById(folderId);
+  f.style.left=(base+ox)+'px';
+  f.style.bottom='58px';
+  f.classList.add('carried');
+}
+function morphBubbleToFolder(bubbleId,folderId,libId){
+  const folder=document.getElementById(folderId);
+  folder.textContent='User Query';
+  folder.classList.add('doc');
+  document.getElementById(bubbleId).classList.add('morph');
+  T(()=>{
+    hide(bubbleId);
+    document.getElementById(bubbleId).classList.remove('morph');
+    show(folderId);
+    attachFolder(folderId,libId);
+  },520);
+}
+const BOOK_POS={book1:{left:32,top:108},book2:{left:48,top:110},book3:{left:64,top:106}};
+const RANK_POS={rk1:{left:26,top:100},rk2:{left:42,top:102},rk3:{left:58,top:98}};
+const BOOK_RANK={book1:'rk1',book2:'rk2',book3:'rk3'};
+function resetBookPositions(){
+  Object.entries(BOOK_POS).forEach(([id,pos])=>{
+    const el=document.getElementById(id);
+    el.style.left=pos.left+'px';
+    el.style.top=pos.top+'px';
+    el.style.zIndex='';
+    el.style.transition='';
+  });
+}
+function resetRankPositions(){
+  Object.entries(RANK_POS).forEach(([id,pos])=>{
+    const el=document.getElementById(id);
+    el.style.left=pos.left+'px';
+    el.style.top=pos.top+'px';
+    el.style.transition='';
+  });
+}
+function stackBooks(libId){
+  const base=libVisualLeft(libId);
+  const stack=[
+    {id:'book1',left:base+2,top:118,z:3},
+    {id:'book2',left:base+8,top:124,z:2},
+    {id:'book3',left:base+14,top:130,z:1}
+  ];
+  stack.forEach(b=>{
+    const el=document.getElementById(b.id);
+    el.style.transition='left .6s var(--ease),top .6s var(--ease)';
+    el.style.left=b.left+'px';
+    el.style.top=b.top+'px';
+    el.style.zIndex=b.z;
+    el.classList.add('hl');
+    const rk=document.getElementById(BOOK_RANK[b.id]);
+    if(rk){
+      rk.style.transition='left .6s var(--ease),top .6s var(--ease)';
+      rk.style.left=(b.left-6)+'px';
+      rk.style.top=(b.top-8)+'px';
+    }
+  });
+}
+function pullBook(bookId,rankId,libId){
+  const base=libVisualLeft(libId);
+  const el=document.getElementById(bookId);
+  const offsets={book1:[0,0],book2:[6,6],book3:[12,12]};
+  const [ox,oy]=offsets[bookId];
+  el.style.transition='left .55s var(--ease),top .55s var(--ease)';
+  el.style.left=(base+2+ox)+'px';
+  el.style.top=(118+oy)+'px';
+  el.classList.add('hl');
+  show(rankId);
+}
+function moveStackToWriter(azureRect){
+  const {left,top}=azureRect;
+  const targets=[
+    {id:'book1',rank:'rk1',left:left+8,top:top+12},
+    {id:'book2',rank:'rk2',left:left+14,top:top+18},
+    {id:'book3',rank:'rk3',left:left+20,top:top+24}
+  ];
+  targets.forEach(t=>{
+    const el=document.getElementById(t.id);
+    el.style.transition='left 1s var(--ease),top 1s var(--ease),opacity .4s';
+    el.style.left=t.left+'px';
+    el.style.top=t.top+'px';
+    const rk=document.getElementById(t.rank);
+    if(rk){
+      rk.style.transition='left 1s var(--ease),top 1s var(--ease)';
+      rk.style.left=(t.left-6)+'px';
+      rk.style.top=(t.top-8)+'px';
+    }
+  });
+}
+function returnFromWriter(folderId,libId){
+  const f=document.getElementById(folderId);
+  const azure=document.getElementById('authorDesk');
+  const azLeft=parseInt(azure.style.left||118,10);
+  f.style.left=(azLeft+2)+'px';
+  f.style.bottom='58px';
+  f.classList.remove('travel','carried');
+  show(folderId);
+  show(libId);
+  resetLibWalk(libId);
+  T(()=>{f.classList.add('travel');f.style.left=(libVisualLeft(libId)+6)+'px';},600);
+}
+function handoffFromExtLib(){
+  document.getElementById('libExt').classList.add('handoff');
+  T(()=>document.getElementById('libExt').classList.remove('handoff'),400);
+}
+function say(text){const b=document.getElementById('Lasst');b.classList.remove('show');
+  setTimeout(()=>{b.textContent=text;b.classList.add('show');},180*PACE_S1);}
+function moveActor(wrap,x,facing){
+  const flip=facing==='left'?'scaleX(-1)':'scaleX(1)';
+  wrap.style.transform=`translateX(${x}px) ${flip}`;
+}
+function playS1(){
+  const wrap=document.getElementById('actorWrap');
+  const cap=document.getElementById('capL');
+  show('Lyou');
+  // "Go left." — walk left while facing left
+  T(()=>show('Lasst'),t1(1300));
+  T(()=>moveActor(wrap,-38,'left'),t1(2100));
+  // "No… your other left." — turn correctly, adjust position
+  T(()=>say('No\u2026 your other left.'),t1(3400));
+  T(()=>moveActor(wrap,18,'left'),t1(4000));
+  // "Take a right." — face right, walk right
+  T(()=>say('Take a right.'),t1(5300));
+  T(()=>moveActor(wrap,88,'right'),t1(5900));
+  // "Actually… make a U-turn." — flip, walk back
+  T(()=>say('Actually\u2026 make a U-turn.'),t1(7100));
+  T(()=>moveActor(wrap,32,'left'),t1(7700));
+  // Longer path to cafeteria — exhausted arrival
+  T(()=>moveActor(wrap,188,'right'),t1(8800));
+  T(()=>{document.getElementById('cafesign').classList.add('show');
+         document.getElementById('cafeteriaDoor').classList.add('open');},t1(9800));
+  T(()=>{document.getElementById('exhaust').classList.add('show');
+         wrap.style.transform='translateX(188px) scaleX(1) translateY(4px)';},t1(10200));
+  T(()=>{cap.textContent="The destination wasn\u2019t the problem\u2026";cap.classList.add('show');},t1(10600));
+  T(()=>{cap.innerHTML="The destination wasn\u2019t the problem\u2026 <b>the journey was.</b>";},t1(12100));
+  // switch to native
+  T(()=>{document.getElementById('p1L').classList.add('dim');
+         document.getElementById('p1R').classList.remove('dim');},t1(13200));
+  T(()=>show('R0'),t1(13800));
+  T(()=>show('R1'),t1(14800));
+  T(()=>show('R1b'),t1(15600));
+  T(()=>show('R2'),t1(16400));
+  T(()=>document.getElementById('tipR').classList.add('show'),t1(17400));
+  T(()=>{const c=document.getElementById('capR');c.innerHTML='One question. <b>A complete answer.</b>';c.classList.add('show');},t1(18400));
+}
+
+/* ---------- SCENE 2 : real SNM weekly deflection ---------- */
+const SNM_DAILY=[
+44.80,43.10,31.90,50.00,41.20,44.70,38.30,
+47.20,42.40,46.90,36.40,61.50,37.00,49.30,
+39.10,45.00,38.90,46.20,28.60,38.80,43.80,
+41.50,36.10,44.40,50.00,50.00,60.00,46.10,
+43.00,46.50,
+43.40,63.60,66.70,45.50,51.40,41.50,43.10,
+43.10,54.30,40.00,44.40,45.90,45.10,50.50,
+53.60,52.90,38.90,44.20,56.90,66.40,59.70,
+60.20,50.00,66.70,50.80,47.90,48.70,64.50,
+58.30,50.00,61.10,
+59.80,52.10,56.80,55.40,59.30,69.60,50.00,
+56.40,53.00,45.70,56.90,61.20,56.50,100.00,
+52.30,64.90,60.90,60.20,62.40,72.00,64.30,
+54.40,52.60,63.30,54.20,56.80,60.90,20.00,
+48.60,57.10
+];
+const SNM=[];
+for(let w=0;w<13;w++){
+  const chunk=SNM_DAILY.slice(w*7,(w+1)*7);
+  SNM.push(Math.round(chunk.reduce((a,b)=>a+b,0)/chunk.length*10)/10);
+}
+const monthMarks=[{i:0,l:'Apr'},{i:4,l:'May'},{i:8,l:'Jun'}];
+function playS3(){
+  const svg=document.getElementById('chart');
+  const W=900,H=340,padL=54,padR=20,padT=20,padB=44;
+  const min=35,max=70;
+  const x=i=>padL+(i/(SNM.length-1))*(W-padL-padR);
+  const y=v=>padT+(1-(v-min)/(max-min))*(H-padT-padB);
+  let g='';
+  for(let v=40;v<=70;v+=10){g+=`<line x1="${padL}" y1="${y(v)}" x2="${W-padR}" y2="${y(v)}" stroke="#1c2130" stroke-width="1"/>`+
+    `<text x="${padL-10}" y="${y(v)+4}" text-anchor="end" class="axlab">${v}%</text>`;}
+  monthMarks.forEach(m=>{g+=`<text x="${x(m.i)}" y="${H-16}" text-anchor="middle" class="axlab">${m.l}</text>`;});
+  const linePts=SNM.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+  const areaPts=`${x(0)},${y(min)} `+linePts+` ${x(SNM.length-1)},${y(min)}`;
+  g+=`<defs><linearGradient id="ln" x1="0" x2="1"><stop offset="0" stop-color="#2E8BFF"/><stop offset="1" stop-color="#16D3A8"/></linearGradient>
+      <linearGradient id="ar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16D3A8" stop-opacity=".28"/><stop offset="1" stop-color="#16D3A8" stop-opacity="0"/></linearGradient></defs>`;
+  g+=`<polygon id="area" points="${areaPts}" fill="url(#ar)" opacity="0"/>`;
+  g+=`<polyline id="line" points="${linePts}" fill="none" stroke="url(#ln)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  SNM.forEach((v,i)=>{g+=`<circle class="pt" id="pt${i}" cx="${x(i)}" cy="${y(v)}" r="4.5" fill="#0b0d13" stroke="#16D3A8" stroke-width="2.5"/>`;});
+  g+=`<text x="${x(0)}" y="${y(SNM[0])-12}" text-anchor="middle" class="axlab" id="lblStart">~45%</text>`;
+  g+=`<text x="${x(SNM.length-1)}" y="${y(SNM[SNM.length-1])-12}" text-anchor="middle" class="axlab" id="lblEnd">~57%</text>`;
+  svg.innerHTML=g;
+  const line=document.getElementById('line');
+  const len=line.getTotalLength();
+  line.style.strokeDasharray=len;line.style.strokeDashoffset=len;
+  line.style.transition='stroke-dashoffset 3.4s cubic-bezier(.4,0,.2,1)';
+  T(()=>line.style.strokeDashoffset=0,200);
+  T(()=>document.getElementById('area').style.transition='opacity 1.2s ease',200);
+  T(()=>document.getElementById('area').style.opacity=1,2400);
+  SNM.forEach((v,i)=>T(()=>{document.getElementById('pt'+i).classList.add('on');
+      document.getElementById('liveNum').textContent=v.toFixed(1)+'%';}, 300+i*(3200/SNM.length)));
+  T(()=>{document.getElementById('hero3').classList.add('go');
+    let n=0;const iv=setInterval(()=>{n++;document.getElementById('ppNum').textContent='+'+n+' pp';
+      if(n>=12)clearInterval(iv);},70);},4000);
+  const chain=[...document.querySelectorAll('#chain span')];
+  chain.forEach((s,i)=>T(()=>s.classList.add('go'),5200+i*600));
+}
+
+/* ---------- SCENE 3 : evolved library ---------- */
+const PACE_S4=1.25;
+const t4=ms=>ms*PACE_S4;
+function playS4(){
+  const kcapL=document.getElementById('kcapL');
+  const kcapR=document.getElementById('kcapR');
+
+  // LEFT — sequential: query → pick up → Azure → search → summary → deliver
+  T(()=>onlyStage('lstageL','custQL'),0);
+
+  T(()=>{show('badgeLibL');show('libL');walkLib('libL',38,'right');},t4(1200));
+  T(()=>morphBubbleToFolder('custQL','reqFolder','libL'),t4(2000));
+
+  T(()=>{walkLibCarry('libL',-52,'left','reqFolder');show('tubeL');},t4(3200));
+  T(()=>{const rf=document.getElementById('reqFolder');rf.classList.add('travel');rf.style.left='44px';},t4(3800));
+
+  T(()=>{
+    hide('tubeL');hide('reqFolder');hide('libL');
+    show('extLib');show('badgeAzureL');show('libExt');
+    show('extB1');show('extB2');show('extB3');
+  },t4(5000));
+
+  T(()=>document.getElementById('extB1').classList.add('hl'),t4(5600));
+  T(()=>{document.getElementById('extB1').classList.remove('hl');document.getElementById('extB2').classList.add('hl');},t4(6200));
+  T(()=>{document.getElementById('extB2').classList.remove('hl');document.getElementById('extB3').classList.add('hl');},t4(6800));
+  T(()=>{document.getElementById('extB3').classList.remove('hl');show('summaryIn');},t4(7400));
+  T(()=>handoffFromExtLib(),t4(7800));
+
+  T(()=>{
+    hide('libExt');hide('summaryIn');
+    const sb=document.getElementById('summaryBack');
+    sb.style.left='44px';show('summaryBack');show('tubeL');show('libL');resetLibWalk('libL');
+  },t4(8200));
+  T(()=>{const sb=document.getElementById('summaryBack');sb.classList.add('travel');sb.style.left='128px';},t4(8800));
+
+  T(()=>{hide('tubeL');hide('extLib');hide('badgeAzureL');
+         attachFolder('summaryBack','libL');walkLibCarry('libL',42,'right','summaryBack');},t4(9600));
+  T(()=>walkLibCarry('libL',58,'right','summaryBack'),t4(10800));
+  T(()=>{hide('summaryBack');hide('libL');},t4(11200));
+
+  T(()=>{
+    document.querySelectorAll('#lstageL [data-prop]').forEach(el=>el.classList.add('secondary'));
+    kcapL.textContent='We received the answer\u2026';kcapL.classList.add('show');
+  },t4(11400));
+  T(()=>{kcapL.innerHTML='We received the answer\u2026 <b>but someone else decided how it was built.</b>';},t4(12600));
+
+  // RIGHT — query → shelf → ranked books → AI Writer → deliver → caption
+  T(()=>{document.getElementById('kL').classList.add('dim');
+         document.getElementById('kR').classList.remove('dim');
+         onlyStage('lstageR','custQR');},t4(13800));
+
+  T(()=>{show('badgeLibR');show('libR');walkLib('libR',-28,'right');},t4(15000));
+  T(()=>morphBubbleToFolder('custQR','researchFolder','libR'),t4(15800));
+
+  T(()=>walkLibCarry('libR',-98,'left','researchFolder'),t4(16800));
+  T(()=>{hide('researchFolder');show('unifiedShelf');show('book1');show('book2');show('book3');},t4(17600));
+  T(()=>pullBook('book1','rk1','libR'),t4(18400));
+  T(()=>pullBook('book2','rk2','libR'),t4(19200));
+  T(()=>pullBook('book3','rk3','libR'),t4(20000));
+  T(()=>stackBooks('libR'),t4(20800));
+
+  T(()=>{
+    positionAzureBesideLib('libR');
+    show('authorDesk');show('badgeAzureR');
+  },t4(21800));
+  T(()=>{
+    moveStackToWriter(positionAzureBesideLib('libR'));
+    document.getElementById('authorDesk').classList.add('processing');
+  },t4(22600));
+
+  T(()=>{['book1','book2','book3'].forEach(id=>hide(id));
+         ['rk1','rk2','rk3'].forEach(id=>hide(id));},t4(23400));
+  T(()=>{document.getElementById('authorDesk').classList.remove('processing');
+         const pr=document.getElementById('polishedReturn');
+         const azLeft=parseInt(document.getElementById('authorDesk').style.left||118,10);
+         pr.style.left=(azLeft+2)+'px';pr.style.bottom='58px';pr.classList.remove('travel','carried');
+         show('polishedReturn');},t4(23800));
+
+  T(()=>returnFromWriter('polishedReturn','libR'),t4(24400));
+  T(()=>{attachFolder('polishedReturn','libR');walkLibCarry('libR',36,'right','polishedReturn');},t4(25200));
+  T(()=>walkLibCarry('libR',52,'right','polishedReturn'),t4(26000));
+  T(()=>{hide('polishedReturn');hide('libR');hide('authorDesk');hide('badgeAzureR');hide('unifiedShelf');
+         ['rk1','rk2','rk3'].forEach(id=>hide(id));resetBookPositions();},t4(26800));
+
+  T(()=>{kcapR.textContent='Every decision is visible.';kcapR.classList.add('show');},t4(27600));
+  T(()=>{kcapR.innerHTML='Every decision is visible. <b>Every step is traceable.</b>';},t4(28800));
+}
+
+/* boot */
+go(0);
+</script>
+</body>
+</html>
